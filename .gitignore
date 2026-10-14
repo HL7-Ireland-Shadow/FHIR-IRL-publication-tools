@@ -1,0 +1,31 @@
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local environment / overrides
+.env
+.env.*
+!.env.example
+docker-compose.override.yml
+
+# Editor and temp files
+*.swp
+*.tmp
+*.bak
+*~
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Artifacts from running the image against a local IG checkout
+output/
+temp/
+input-cache/
+fsh-generated/
+template/

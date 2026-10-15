@@ -60,8 +60,9 @@ jobs:
       # Secrets committed to the repo itself (Dockerfile, scripts, workflows, history of the
       # checked-out tree). Report to code scanning, then fail on any HIGH/CRITICAL secret.
       - name: Scan repository for secrets (SARIF report)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
+          version: latest   # Trivy engine: always the newest release
           scan-type: fs
           scan-ref: .
           scanners: secret
@@ -77,8 +78,9 @@ jobs:
           category: trivy-secrets-repo
 
       - name: Fail on secrets in repository
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
+          version: latest   # Trivy engine: always the newest release
           scan-type: fs
           scan-ref: .
           scanners: secret
@@ -102,8 +104,9 @@ jobs:
 
       # Full report (all severities) for the Security tab; never fails the build.
       - name: Scan image (SARIF report)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
+          version: latest   # Trivy engine: always the newest release
           image-ref: ${{ env.IMAGE_NAME }}:scan
           timeout: 20m
           format: sarif
@@ -121,8 +124,9 @@ jobs:
       # Gate: fail on CRITICAL findings that have a fix available; unfixed ones are
       # reported above but don't block releases.
       - name: Fail on fixable CRITICAL vulnerabilities
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
+          version: latest   # Trivy engine: always the newest release
           image-ref: ${{ env.IMAGE_NAME }}:scan
           timeout: 20m
           format: table
@@ -133,8 +137,9 @@ jobs:
 
       # Secrets baked into image layers (leaked tokens, keys, .env files in the image).
       - name: Scan image for secrets (SARIF report)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
+          version: latest   # Trivy engine: always the newest release
           image-ref: ${{ env.IMAGE_NAME }}:scan
           timeout: 20m
           scanners: secret
@@ -150,8 +155,9 @@ jobs:
           category: trivy-secrets-image
 
       - name: Fail on secrets in image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
+          version: latest   # Trivy engine: always the newest release
           image-ref: ${{ env.IMAGE_NAME }}:scan
           timeout: 20m
           scanners: secret

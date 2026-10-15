@@ -13,7 +13,7 @@
 #   - HIGH/CRITICAL secrets in the repo or in the image
 set -euo pipefail
 
-# Keep in step with the trivy version used by aquasecurity/trivy-action in the workflow.
+# The workflow runs trivy-action with `version: latest`, so use the newest Trivy here too.
 TRIVY_IMAGE="${TRIVY_IMAGE:-aquasec/trivy:latest}"
 IMAGE_TAG="${IMAGE_TAG:-fhir-tools:scan}"
 # The default 5m is too short to walk this image (JDK, Ruby, Node, large JARs).

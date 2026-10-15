@@ -20,6 +20,9 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  # Local-only tag for the pre-push scan build. Fixed and lowercase: github.repository is
+  # mixed case, which Docker rejects as a repository name.
+  SCAN_IMAGE: fhir-tools:scan
 
 jobs:
   build-and-push:
@@ -98,7 +101,7 @@ jobs:
           file: docker/Dockerfile
           load: true
           push: false
-          tags: ${{ env.IMAGE_NAME }}:scan
+          tags: ${{ env.SCAN_IMAGE }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -107,7 +110,7 @@ jobs:
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           version: latest   # Trivy engine: always the newest release
-          image-ref: ${{ env.IMAGE_NAME }}:scan
+          image-ref: ${{ env.SCAN_IMAGE }}
           timeout: 20m
           format: sarif
           output: trivy-results.sarif
@@ -127,7 +130,7 @@ jobs:
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           version: latest   # Trivy engine: always the newest release
-          image-ref: ${{ env.IMAGE_NAME }}:scan
+          image-ref: ${{ env.SCAN_IMAGE }}
           timeout: 20m
           format: table
           severity: CRITICAL
@@ -140,7 +143,7 @@ jobs:
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           version: latest   # Trivy engine: always the newest release
-          image-ref: ${{ env.IMAGE_NAME }}:scan
+          image-ref: ${{ env.SCAN_IMAGE }}
           timeout: 20m
           scanners: secret
           format: sarif
@@ -158,7 +161,7 @@ jobs:
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           version: latest   # Trivy engine: always the newest release
-          image-ref: ${{ env.IMAGE_NAME }}:scan
+          image-ref: ${{ env.SCAN_IMAGE }}
           timeout: 20m
           scanners: secret
           severity: HIGH,CRITICAL

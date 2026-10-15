@@ -26,6 +26,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write   # upload Trivy SARIF to code scanning
 
     steps:
       - name: Checkout
@@ -54,6 +55,49 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha
             type=ref,event=pr
+
+      # Build once into the local Docker store so it can be scanned BEFORE anything is
+      # pushed. (Attestations can't be loaded locally, so SBOM/provenance are added on the
+      # push build below; it reuses this build's layers from the GHA cache.)
+      - name: Build image for scanning
+        uses: docker/build-push-action@v6
+        with:
+          context: docker
+          file: docker/Dockerfile
+          load: true
+          push: false
+          tags: ${{ env.IMAGE_NAME }}:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Full report (all severities) for the Security tab; never fails the build.
+      - name: Scan image (SARIF report)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:scan
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "0"
+
+      # Fork PRs get a read-only token and cannot upload code-scanning results.
+      - name: Upload SARIF to code scanning
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-image
+
+      # Gate: fail on CRITICAL findings that have a fix available; unfixed ones are
+      # reported above but don't block releases.
+      - name: Fail on fixable CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:scan
+          format: table
+          severity: CRITICAL
+          ignore-unfixed: true
+          vuln-type: os,library
+          exit-code: "1"
 
       - name: Build and push
         uses: docker/build-push-action@v6

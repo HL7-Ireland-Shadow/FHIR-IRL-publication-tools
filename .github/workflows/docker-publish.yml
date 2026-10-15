@@ -12,7 +12,8 @@ on:
       - "docker/**"
       - ".github/workflows/docker-publish.yml"
   schedule:
-    # Weekly rebuild picks up new IG Publisher / Validator / SUSHI releases (they build as "latest").
+    # Weekly rebuild picks up base-image and apt security updates. Tool versions are pinned
+    # in docker/Dockerfile, so new IG Publisher / Validator / SUSHI releases need a PR.
     - cron: "0 3 * * 1"
   workflow_dispatch:
 

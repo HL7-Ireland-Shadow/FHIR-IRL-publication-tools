@@ -95,7 +95,7 @@ Set these on the command line or in a `.env` file beside `docker-compose.yml`.
 | `JAVA_OPTS`                                                  | `-Xmx4g -Dfile.encoding=UTF-8`    | JVM flags. Raise the heap for large IGs.                                                                               |
 | `SKIP_SUSHI`                                                 | unset                             | `1` makes `publish` skip the SUSHI step.                                                                               |
 | `IG_DIR`                                                     | `/ig`                             | IG root inside the container.                                                                                          |
-| `IG_PUBLISHER_VERSION`, `VALIDATOR_VERSION`, `SUSHI_VERSION` | `latest`                          | **Build** args for this repo's image. Pin them for a reproducible image. IG repos get this by pinning an image tag.    |
+| `IG_PUBLISHER_VERSION`/`_SHA256`, `VALIDATOR_VERSION`/`_SHA256`, `SUSHI_VERSION`, `GOFSH_VERSION`, `BUNDLER_VERSION` | pinned in `Dockerfile` | **Build** args for this repo's image. A JAR version must be changed together with its sha256 or the build fails. IG repos get this by pinning an image tag. |
 
 ```
 TX_SERVER=n/a docker compose run --rm publish          # fast build, no terminology server

@@ -104,6 +104,7 @@ jobs:
         uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ env.IMAGE_NAME }}:scan
+          timeout: 20m
           format: sarif
           output: trivy-results.sarif
           exit-code: "0"
@@ -122,6 +123,7 @@ jobs:
         uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ env.IMAGE_NAME }}:scan
+          timeout: 20m
           format: table
           severity: CRITICAL
           ignore-unfixed: true
@@ -133,6 +135,7 @@ jobs:
         uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ env.IMAGE_NAME }}:scan
+          timeout: 20m
           scanners: secret
           format: sarif
           output: trivy-secrets-image.sarif
@@ -149,6 +152,7 @@ jobs:
         uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ env.IMAGE_NAME }}:scan
+          timeout: 20m
           scanners: secret
           severity: HIGH,CRITICAL
           format: table

@@ -14,10 +14,14 @@
 set -euo pipefail
 
 # Keep in step with the trivy version used by aquasecurity/trivy-action in the workflow.
-TRIVY_IMAGE="${TRIVY_IMAGE:-aquasec/trivy:0.57.1}"
+TRIVY_IMAGE="${TRIVY_IMAGE:-aquasec/trivy:latest}"
 IMAGE_TAG="${IMAGE_TAG:-fhir-tools:scan}"
+# The default 5m is too short to walk this image (JDK, Ruby, Node, large JARs).
+TRIVY_TIMEOUT="${TRIVY_TIMEOUT:-20m}"
 
-repo_root="$(git rev-parse --show-toplevel)"
+# Resolve the repo from this script's own location, so it works from any directory
+# (including when the caller's cwd has been deleted or is outside the repo).
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${repo_root}"
 
 scan_image=1
@@ -75,7 +79,7 @@ if [[ "${scan_image}" == 1 ]]; then
 
   step "Image vulnerabilities (fixable CRITICAL)"
   gate "image vulnerability scan" \
-    trivy_cmd image --scanners vuln --severity CRITICAL --ignore-unfixed \
+    trivy_cmd image --timeout "${TRIVY_TIMEOUT}" --scanners vuln --severity CRITICAL --ignore-unfixed \
       --vuln-type os,library --exit-code 1 "${IMAGE_TAG}"
 
   step "Image secrets (HIGH/CRITICAL)"

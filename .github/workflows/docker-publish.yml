@@ -95,7 +95,7 @@ jobs:
       # pushed. (Attestations can't be loaded locally, so SBOM/provenance are added on the
       # push build below; it reuses this build's layers from the GHA cache.)
       - name: Build image for scanning
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: docker
           file: docker/Dockerfile
@@ -169,7 +169,7 @@ jobs:
           exit-code: "1"
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: docker
           file: docker/Dockerfile

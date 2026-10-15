@@ -40,7 +40,9 @@ a docker-compose example and troubleshooting.
 
 - Pushes to `main` publish `:latest`.
 - Pushing a `v*` tag (e.g. `v1.2.0`) publishes `:1.2.0` and `:1.2`.
-- A weekly scheduled build refreshes `:latest` with the newest IG Publisher, Validator
-  and SUSHI releases.
+- A weekly scheduled build refreshes `:latest` with base-image and OS security updates.
+- IG Publisher, Validator, SUSHI, GoFSH and Bundler are pinned in `docker/Dockerfile`
+  (the two JARs with a sha256 that the build verifies). Upgrading one is a PR: check the
+  upstream release page, then change the version and its sha256 together.
 
 IG repos choose when to adopt a new image by changing the tag they reference.

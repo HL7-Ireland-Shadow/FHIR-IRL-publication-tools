@@ -12,13 +12,17 @@ on:
       - "docker/**"
       - ".github/workflows/docker-publish.yml"
   schedule:
-    # Weekly rebuild picks up new IG Publisher / Validator / SUSHI releases (they build as "latest").
+    # Weekly rebuild picks up base-image and apt security updates. Tool versions are pinned
+    # in docker/Dockerfile, so new IG Publisher / Validator / SUSHI releases need a PR.
     - cron: "0 3 * * 1"
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  # Local-only tag for the pre-push scan build. Fixed and lowercase: github.repository is
+  # mixed case, which Docker rejects as a repository name.
+  SCAN_IMAGE: fhir-tools:scan
 
 jobs:
   build-and-push:
@@ -26,6 +30,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write   # upload Trivy SARIF to code scanning
 
     steps:
       - name: Checkout
@@ -55,6 +60,114 @@ jobs:
             type=sha
             type=ref,event=pr
 
+      # Secrets committed to the repo itself (Dockerfile, scripts, workflows, history of the
+      # checked-out tree). Report to code scanning, then fail on any HIGH/CRITICAL secret.
+      - name: Scan repository for secrets (SARIF report)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: latest   # Trivy engine: always the newest release
+          scan-type: fs
+          scan-ref: .
+          scanners: secret
+          format: sarif
+          output: trivy-secrets-repo.sarif
+          exit-code: "0"
+
+      - name: Upload repository secret scan SARIF
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-secrets-repo.sarif
+          category: trivy-secrets-repo
+
+      - name: Fail on secrets in repository
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: latest   # Trivy engine: always the newest release
+          scan-type: fs
+          scan-ref: .
+          scanners: secret
+          severity: HIGH,CRITICAL
+          format: table
+          exit-code: "1"
+
+      # Build once into the local Docker store so it can be scanned BEFORE anything is
+      # pushed. (Attestations can't be loaded locally, so SBOM/provenance are added on the
+      # push build below; it reuses this build's layers from the GHA cache.)
+      - name: Build image for scanning
+        uses: docker/build-push-action@v6
+        with:
+          context: docker
+          file: docker/Dockerfile
+          load: true
+          push: false
+          tags: ${{ env.SCAN_IMAGE }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Full report (all severities) for the Security tab; never fails the build.
+      - name: Scan image (SARIF report)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: latest   # Trivy engine: always the newest release
+          image-ref: ${{ env.SCAN_IMAGE }}
+          timeout: 20m
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "0"
+
+      # Fork PRs get a read-only token and cannot upload code-scanning results.
+      - name: Upload SARIF to code scanning
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-image
+
+      # Gate: fail on CRITICAL findings that have a fix available; unfixed ones are
+      # reported above but don't block releases.
+      - name: Fail on fixable CRITICAL vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: latest   # Trivy engine: always the newest release
+          image-ref: ${{ env.SCAN_IMAGE }}
+          timeout: 20m
+          format: table
+          severity: CRITICAL
+          ignore-unfixed: true
+          vuln-type: os,library
+          exit-code: "1"
+
+      # Secrets baked into image layers (leaked tokens, keys, .env files in the image).
+      - name: Scan image for secrets (SARIF report)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: latest   # Trivy engine: always the newest release
+          image-ref: ${{ env.SCAN_IMAGE }}
+          timeout: 20m
+          scanners: secret
+          format: sarif
+          output: trivy-secrets-image.sarif
+          exit-code: "0"
+
+      - name: Upload image secret scan SARIF
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-secrets-image.sarif
+          category: trivy-secrets-image
+
+      - name: Fail on secrets in image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: latest   # Trivy engine: always the newest release
+          image-ref: ${{ env.SCAN_IMAGE }}
+          timeout: 20m
+          scanners: secret
+          severity: HIGH,CRITICAL
+          format: table
+          exit-code: "1"
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -63,5 +176,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # SPDX SBOM + SLSA provenance attached to the pushed image as attestations.
+          sbom: true
+          provenance: mode=max
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -1,0 +1,7 @@
+version: 2
+updates:
+  # Keeps pinned action versions (trivy-action, docker/*, actions/*) current via PRs.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

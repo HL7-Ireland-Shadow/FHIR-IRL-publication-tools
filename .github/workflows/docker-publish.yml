@@ -56,6 +56,35 @@ jobs:
             type=sha
             type=ref,event=pr
 
+      # Secrets committed to the repo itself (Dockerfile, scripts, workflows, history of the
+      # checked-out tree). Report to code scanning, then fail on any HIGH/CRITICAL secret.
+      - name: Scan repository for secrets (SARIF report)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: secret
+          format: sarif
+          output: trivy-secrets-repo.sarif
+          exit-code: "0"
+
+      - name: Upload repository secret scan SARIF
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-secrets-repo.sarif
+          category: trivy-secrets-repo
+
+      - name: Fail on secrets in repository
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: secret
+          severity: HIGH,CRITICAL
+          format: table
+          exit-code: "1"
+
       # Build once into the local Docker store so it can be scanned BEFORE anything is
       # pushed. (Attestations can't be loaded locally, so SBOM/provenance are added on the
       # push build below; it reuses this build's layers from the GHA cache.)
@@ -97,6 +126,32 @@ jobs:
           severity: CRITICAL
           ignore-unfixed: true
           vuln-type: os,library
+          exit-code: "1"
+
+      # Secrets baked into image layers (leaked tokens, keys, .env files in the image).
+      - name: Scan image for secrets (SARIF report)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:scan
+          scanners: secret
+          format: sarif
+          output: trivy-secrets-image.sarif
+          exit-code: "0"
+
+      - name: Upload image secret scan SARIF
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-secrets-image.sarif
+          category: trivy-secrets-image
+
+      - name: Fail on secrets in image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:scan
+          scanners: secret
+          severity: HIGH,CRITICAL
+          format: table
           exit-code: "1"
 
       - name: Build and push

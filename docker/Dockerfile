@@ -12,7 +12,7 @@
 #   - git / curl / unzip / jq / python3 (IG templates and helper scripts expect them)
 
 ARG JAVA_VERSION=21
-FROM eclipse-temurin:${JAVA_VERSION}-jdk-jammy
+FROM eclipse-temurin:${JAVA_VERSION}-jre-noble
 
 # Tool versions. "latest" resolves to the current GitHub release / npm dist-tag at
 # build time; pin these (e.g. IG_PUBLISHER_VERSION=1.8.12) for a reproducible image.
@@ -80,8 +80,15 @@ RUN chmod +x /usr/local/bin/fhir-tools /usr/local/bin/record-versions && record-
 # Dirs are world-writable so the container also runs as `--user $(id -u):$(id -g)` on
 # Linux hosts (keeping bind-mounted output owned by the invoking user), and so named
 # volumes mounted over temp/ and input-cache/ inherit writable ownership.
-RUN groupadd --gid 1000 fhir \
-    && useradd --uid 1000 --gid 1000 --home-dir "${HOME}" --create-home --shell /bin/bash fhir \
+#
+# Some base image builds already ship a uid/gid 1000 account (e.g. `ubuntu`); rename it to
+# `fhir` rather than failing, and create it only when the base doesn't have one.
+RUN g="$(getent group 1000 | cut -d: -f1 || true)"; \
+    u="$(getent passwd 1000 | cut -d: -f1 || true)"; \
+    if [ -z "$g" ]; then groupadd --gid 1000 fhir; \
+    elif [ "$g" != "fhir" ]; then groupmod --new-name fhir "$g"; fi; \
+    if [ -z "$u" ]; then useradd --uid 1000 --gid 1000 --home-dir "${HOME}" --shell /bin/bash fhir; \
+    else usermod --login fhir --home "${HOME}" --gid 1000 --shell /bin/bash "$u"; fi \
     && mkdir -p "${HOME}/.fhir" "${IG_DIR}/temp" "${IG_DIR}/input-cache" \
     && chown -R fhir:fhir "${HOME}" "${IG_DIR}" \
     && chmod -R 777 "${HOME}" "${IG_DIR}"
